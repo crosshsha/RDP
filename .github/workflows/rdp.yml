@@ -1,0 +1,44 @@
+name: RDP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+    timeout-minutes: 3600
+
+    steps:
+      - name: Enable RDP
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+
+      - name: Create User
+        run: |
+          $pass = "P@ssw0rd123!"
+          $secure = ConvertTo-SecureString $pass -AsPlainText -Force
+          New-LocalUser -Name "User" -Password $secure
+          Add-LocalGroupMember -Group "Administrators" -Member "User"
+          echo "Password: $pass"
+
+      - name: Install Tailscale
+        run: |
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi" -OutFile "$env:TEMP\tailscale.msi"
+          Start-Process msiexec.exe -ArgumentList "/i `"$env:TEMP\tailscale.msi`" /quiet" -Wait
+
+      - name: Connect Tailscale
+        run: |
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-runner
+          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+          echo "IP: $ip"
+          echo "User: User"
+          echo "Password: P@ssw0rd123!"
+
+      - name: Keep Alive
+        run: |
+          while ($true) {
+            Write-Host "[$(Get-Date)] RDP Active"
+            Start-Sleep -Seconds 300
+          }
