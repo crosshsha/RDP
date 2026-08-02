@@ -1,0 +1,40 @@
+name: Ubuntu-RDP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ubuntu-rdp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3600
+
+    steps:
+      - name: Install XRDP
+        run: |
+          sudo apt update
+          sudo apt install xrdp xfce4 xfce4-goodies -y
+          sudo systemctl enable xrdp
+          sudo systemctl start xrdp
+
+      - name: Create User
+        run: |
+          sudo useradd -m -s /bin/bash user
+          echo "user:P@ssw0rd123!" | sudo chpasswd
+          sudo usermod -aG sudo user
+          echo ""
+          echo "IP: $(curl -s ifconfig.me)"
+          echo "User: user"
+          echo "Password: P@ssw0rd123!"
+          echo ""
+
+      - name: Setup Firewall
+        run: |
+          sudo ufw allow 3389
+          sudo ufw allow 22
+
+      - name: Keep Alive
+        run: |
+          while true; do
+            echo "[$(date)] Ubuntu RDP Active - IP: $(curl -s ifconfig.me)"
+            sleep 300
+          done
